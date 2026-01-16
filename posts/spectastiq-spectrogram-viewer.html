@@ -1,0 +1,699 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>
+      HardieSoft | Spectastiq: a web component for exploring audio spectrograms
+    </title>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script>
+      window.addEventListener("load", () => {
+        let first = true;
+        let lastScrollY = 0;
+        console.log(window.innerHeight);
+        const el = document.querySelector(".logo-header");
+        const observer = new IntersectionObserver(
+          ([e]) => {
+            if (first || window.scrollY !== lastScrollY) {
+              lastScrollY = window.scrollY;
+              // Ignore weird triggering of multiple intersections on page load in safari and sometimes chrome.
+              first = false;
+              if (lastScrollY !== 0) {
+                e.target.classList.toggle("pinned", e.intersectionRatio < 1);
+              }
+            }
+          },
+          { threshold: [1], rootMargin: "-1px 0px 0px 0px" },
+        );
+        observer.observe(el);
+      });
+    </script>
+    <link
+      href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@900&family=Source+Serif+4:ital,opsz,wght@0,8..60,200..900;1,8..60,200..900&display=swap"
+      rel="stylesheet"
+    />
+    <link rel="stylesheet" crossorigin href="/index.css" />
+    <style type="text/tailwind">
+      @theme {
+        --breakpoint-md: 10rem;
+      }
+    </style>
+    <meta name="color-scheme" content="light dark" />
+    <meta
+      name="theme-color"
+      content="#ffffff"
+      media="(prefers-color-scheme: light)"
+    />
+    <meta
+      name="theme-color"
+      content="#1a1a1a"
+      media="(prefers-color-scheme: dark)"
+    />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+  </head>
+  <body class="flex flex-col flex-wrap min-h-screen gap-10" id="main">
+    <header
+      class="w-full md:w-80 md:[.pinned]:w-full md:[.pinned-on-load]:w-full md:h-80 md:[.pinned]:h-auto md:[.pinned-on-load]:h-auto flex items-center place-self-center group logo-header mt-50 sticky top-0 md:[.pinned]:mt-[1px] md:[.pinned]:py-1 md:[.pinned]:px-3"
+    >
+      <div
+        class="flex flex-col group-[.pinned]:flex-row items-center justify-between place-items-center w-full gap-8"
+      >
+        <a
+          href="/"
+          class="router-link-active flex flex-col items-center group-[.pinned]:items-start w-full group-[.pinned]:items-start group-[.pinned]:w-150"
+          ><h1
+            class="text-5xl group-[.pinned]:text-xl break-keep text-nowrap text-white"
+          >
+            <strong>hardie</strong>|soft
+          </h1>
+          <h2 class="group-[.pinned]:opacity-0 group-[.pinned]:h-0">
+            Jon Hardie, <span id="scroll-names">Software Developer</span>
+          </h2></a
+        >
+        <nav class="flex items-center flex-col">
+          <ul class="flex gap-4 text-white">
+            <!--        <li>--><!--          <router-link :to="{ name: 'pet-projects-index' }"--><!--            >pet&nbsp;projects</router-link--><!--          >--><!--        </li>--><!--        <li>--><!--          <router-link :to="{ name: 'work-index' }">professional</router-link>--><!--        </li>-->
+            <li><a href="/" class="router-link-active">posts</a></li>
+            <li><a href="/about" class="">about</a></li>
+          </ul>
+        </nav>
+      </div>
+    </header>
+    <main
+      class="w-full md:w-155 flex flex-col place-self-center gap-5 page-content p-5"
+    >
+      <div>
+        <a href="/" class="router-link-active mb-2 block">Posts index</a>
+        <h1 class="mt-2">
+          Spectastiq: a web component for exploring audio spectrograms
+        </h1>
+        <p>
+          An outline of some of the architectural decisions made during the
+          development of
+          <a href="https://hardiesoft.com/spectastiq/">Spectastiq</a>, a
+          standalone web component that allows the exploration of pre-recorded
+          audio in frequency space inside your web browser.
+        </p>
+        <p>
+          <a href="https://hardiesoft.com/spectastiq/">Visit here</a> to play
+          with Spectastiq and see what it can do.
+        </p>
+        <h2>Background</h2>
+        <p>
+          Spectastiq began life as a command‑line utility that batch‑processes
+          <code>.wav</code> files from DOC AR4 and AudioMoth acoustic recorders
+          into uniformly styled spectrogram images. These images are then
+          displayed in <a href="https://kiwiviz.digilab.co/">KiwiViz</a>, a
+          visualisation tool for kiwi calls (of individual kiwi!) at the
+          <a href="https://atarausanctuary.co.nz/">Atarau Sanctuary</a>.
+        </p>
+        <p>
+          Building on this foundation, I evolved Spectastiq into a reusable
+          <a
+            href="https://developer.mozilla.org/en-US/docs/Web/API/Web_components"
+            >web component</a
+          >
+          that renders spectrograms directly in the browser at runtime. This was
+          motivated by the needs of
+          <a href="https://cacophony.org.nz">Cacophony</a> Browse’s
+          bird‑classification interface. (It turns out the best way to classify
+          sounds in audio is to make it a computer <em>vision</em> problem).
+        </p>
+        <p>
+          In this workflow, expert users select and tag birdsong regions,
+          contributing to a dataset that is used to train an AI model to
+          automatically recognise native New Zealand birds.
+        </p>
+        <p>
+          Having a real-world consumer of the component was essential in helping
+          to inform the customisation hooks that I&#39;d expose via a JavaScript
+          API and HTML attributes.
+        </p>
+        <h2 class="mb-3">Design goals</h2>
+        <h4>Fast initial load time</h4>
+        <p>
+          A performant FFT implementation would be important, especially for
+          that crucial initial load of the full audio spectrogram.
+        </p>
+        <h4>Touch first interactions</h4>
+        <p>
+          Pinch‑to‑zoom, panning, and other gestures must feel natural on mobile
+          devices.
+        </p>
+        <h4>Smooth interaction</h4>
+        <p>No jank or dropped frames, even on low spec hardware.</p>
+        <h4>Self-contained</h4>
+        <p>
+          Multiple instances should safely co-exist on a page without
+          interference or global state clashes.
+        </p>
+        <aside class="p-3 pb-1 mb-3" style="background-color: #f0f0f0">
+          <h3>A note on ‘low spec’</h3>
+          <p>
+            To guide my performance optimisations, I decided it was important to
+            have an specific test device to target as my baseline.
+          </p>
+          <p>
+            Based on what I had lying around the house, I chose as a reference
+            device a budget Android tablet, the 2020 Lenovo TB-X605LC with eight
+            <a
+              href="https://chipsandcheese.com/p/arms-cortex-a53-tiny-but-important"
+              >ARM Cortex A53</a
+            >
+            cores @ 1.8Ghz and 3GB RAM, running Chrome.
+          </p>
+          <p>The A53 is a very common CPU core found in many such devices.</p>
+          <p>
+            Although this device is &quot;low‑spec&quot; by modern standards –
+            lacking much of the heavyweight speculative‑execution machinery
+            found in higher end CPU cores — they can still deliver solid
+            performance on straightforward numerical workloads.
+          </p>
+        </aside>
+        <h2>Architecture</h2>
+        <p>
+          Access to raw PCM audio samples is needed to be able to generate a
+          spectrogram.
+        </p>
+        <p>
+          For loading an audio file and turning it into a
+          <code>Float32Array</code> of PCM audio samples, Spectastiq currently
+          leans entirely on the browsers&#39; built-in
+          <code>WebAudio</code> API.
+        </p>
+        <p>
+          A asynchronous call to
+          <code>audioContext.decodeAudioData(myAudioFileBytes)</code> is made,
+          and then we wait a while. This returns an <code>AudioBuffer</code>. Of
+          course you can&#39;t just play back an audio buffer silly, to do that
+          you need to create an <code>AudioBufferSourceNode</code>, assign this
+          decoded <code>AudioBuffer</code> to the
+          <code>bufferNode.buffer</code> property, and then
+          <code>bufferNode.connect(audioContext.destination)</code> (where
+          &#39;destination&#39; is your speakers). The <code>WebAudio</code> API
+          is almost universally panned, but it seems unlikely we can use
+          anything better anytime soon, so let&#39;s just just move on.
+        </p>
+        <p>
+          For a speedy startup time, the most important factor is that we can
+          load an audio file <em>once</em> and then use the same data to
+          generate a spectrogram image of that audio, as well as play it back
+          through our speakers. There is some copying around of data involved,
+          but the memory footprint ends up peaking around 3x the size of the
+          decompressed PCM data.
+        </p>
+        <p>
+          To get a <code>Float32Array</code> for spectral analysis, we use the
+          <code>WebAudio</code> API again:
+          <code>audioBuffer.getChannelData(0)</code>. At this time, Spectastiq
+          only uses a single channel to display a spectrogram, so in the case
+          where your audio is stereo, only the first channel will be used.
+        </p>
+        <p>
+          Having received this decoded audio buffer, this is where we can
+          actually make some meaningful architectural choices.
+        </p>
+        <p>
+          Spectrogram rendering is achieved by performing a
+          <a href="https://en.wikipedia.org/wiki/Fast_Fourier_transform"
+            >Fast Fourier Transform (FFT)</a
+          >
+          over the samples of your audio. This is a math intensive process that
+          is indistinguishable from magic. It will take some time to complete,
+          so it&#39;s important to do this work off the main UI thread,
+          otherwise the browser will become unresponsive.
+        </p>
+        <p>
+          There is an excellent crate called
+          <a href="https://crates.io/crates/rustfft">RustFFT</a> available for
+          Rust, and it&#39;s possible to compile this to WebAssembly and expose
+          its functionality to JavaScript using
+          <a href="https://wasm-bindgen.github.io/wasm-bindgen/"
+            ><code>wasm_bindgen</code></a
+          >.
+        </p>
+        <p>
+          FFT takes a sequence of numeric samples of some length and returns a
+          histogram of &#39;frequency buckets&#39;, which — in terms of audio —
+          represent the intensity found in a sound at a given frequency.
+        </p>
+        <p>
+          If we break up our audio samples array into small chunks — let&#39;s
+          say of 2048 samples each, or about 42ms with 48Khz audio — and perform
+          FFT on each chunk in turn, we&#39;ll have an array-of-arrays of
+          frequencies found in each chunk of the sound, and their corresponding
+          intensities (approximately, how loud each frequency sounds).
+        </p>
+        <p>
+          This information can be interpreted as a 2D array - an image that can
+          be displayed.
+        </p>
+        <p class="flex w-full justify-center">
+          <img
+            src="/images/naive-approach.png"
+            alt="nïave FFT stepping approach"
+            width="316"
+            height="382"
+          />
+        </p>
+        <p>
+          Unfortunately this nïave approach doesn&#39;t look very good.
+          We&#39;re just not capturing enough temporal resolution.
+        </p>
+        <p>
+          It turns out that to get a smooth looking representation of the
+          frequencies found in a sound, it&#39;s necessary to <em>slide</em> a
+          window the length of our chunk size over the audio, and for each
+          increment where the window is moved over the sample data, take an FFT
+          over the window and accumulate the frequency intensity data from each
+          FFT step into a single set of buckets representing that slice - what
+          can be thought of in our image as a vertical column of pixels.
+          That&#39;s complicated to understand, so I&#39;ve tried, (and quite
+          possibly failed) to illustrate it here:
+        </p>
+        <p class="flex w-full justify-center">
+          <img
+            width="572"
+            height="343"
+            src="/images/basic-sliding-window.png"
+            alt="basic sliding FFT window"
+          />
+        </p>
+        <p>
+          This still looks pretty rough. There&#39;s another step most
+          spectrogram generating software uses to further smooth things out, and
+          that&#39;s to apply a &#39;filter&#39;, or &#39;<a
+            href="https://en.wikipedia.org/wiki/Window_function"
+            >window function</a
+          >&#39;, also known as a &#39;kernel&#39;. This just means that for
+          every increment when sliding the sampling window across the data, a
+          weighting is applied to all the values inside the window. This is
+          usually some kind of bell-shaped distribution.
+        </p>
+        <p class="flex w-full justify-center">
+          <img
+            width="492"
+            height="377"
+            src="/images/sliding-window-with-filter.png"
+            alt="basic sliding FFT window"
+          />
+        </p>
+        <p>
+          Okay, so there&#39;s some output data that corresponds to the
+          frequency information in the audio. We can draw that into a nice
+          image, but this is all happening on a single CPU thread, and is not as
+          fast as it could be.
+        </p>
+        <p>
+          Because we have that sliding window function, each column of the
+          spectrogram has a dependency on some sample data from a slightly
+          earlier time-step. At the beginning of the audio, where there are no
+          previous samples to look back at when evaluating the first one,
+          there&#39;s a visible &#39;shadow&#39; before things really get going.
+        </p>
+        <!--  <img>Show naiive chunking-->
+        <p>
+          Spectastiq splits up the audio into a number of slices (in Rust
+          parlance), and dispatches those slices to an equal number of
+          <code>WebWorker</code> threads, each running the same FFT-processing
+          Web Assembly module.
+        </p>
+        <p>
+          The tricky bit in successfully parallelising this work was that these
+          chunks need to be <em>overlapping</em>, with each chunk containing the
+          last <code>WINDOW_SIZE</code> samples from the previous chunk as a
+          kind of prelude to prime the FFT calculation. If we do this
+          successfully it prevents the early columns of pixels in each
+          spectrogram chunk from containing that ugly shadow discontinuity. When
+          each worker returns the processed frequency data, this initial prelude
+          is <strong>not</strong> included.
+        </p>
+        <p class="flex w-full justify-center">
+          <img
+            width="580"
+            height="319"
+            src="/images/overlapping-chunk-preludes.png"
+            alt="Chunks of overlapping audio data"
+          />
+        </p>
+        <p>
+          In Spectastics&#39; implementation, FFT <code>WINDOW_SIZE</code> is
+          always 2048 samples, but this may become customisable in the future.
+          For now 2048 samples gives a reasonable trade-off between temporal
+          resolution of the audio vs how fine-grained the frequency buckets are.
+        </p>
+        <h2>Rendering</h2>
+        <p>
+          After all of the worker threads have returned, and there&#39;s a new
+          spectrogram buffer available, it needs to be rendered to the screen.
+        </p>
+        <h4>Substituting intermediate placeholder images</h4>
+        <p>
+          When the user zooms and pans around the audio file, Spectastiq aims to
+          have those interactions happen at your devices&#39; full native frame
+          rate.
+        </p>
+        <p>
+          While awaiting delivery of a new higher definition spectrogram image
+          for the current time-range of audio you&#39;re viewing, Spectastiq
+          draws the appropriate section using the best resolution previous image
+          that it has, as a placeholder until the new sharp image is ready to be
+          swapped in.
+        </p>
+        <p>
+          At the limit, this image is a portion of the spectrogram image of the
+          entire audio clip that was rendered at initialisation time.
+        </p>
+        <p>
+          Because of this design decision, when a user is panning or zooming the
+          spectrogram the image may appear momentarily blurry, but it makes for
+          a more responsive user experience overall.
+        </p>
+        <h4>Drawing to a canvas</h4>
+        <p>
+          One could decide to use a basic HTML <code>&lt;canvas&gt;</code> with
+          a <code>&quot;2d&quot;</code> context and employ the
+          <code>drawImage</code> API to &#39;blit&#39; a portion of your
+          spectrogram image buffer, stretched out to cover the visible area. An
+          early version of Spectastiq <em>did</em> in fact use this method, but
+          I discovered an (under-specified?) limitation to this API at higher
+          zoom levels.
+        </p>
+        <h4>canvasContext.drawImage() rounding issues</h4>
+        <p>
+          <code>drawImage</code> as implemented by browsers doesn&#39;t support
+          cropping to sub-pixel offsets for the rectangular portion you&#39;re
+          drawing. When calling something like
+          <code
+            >drawImage(imageBufferSource, 2.5, 0, 10.5, sourceHeight, 0, 0,
+            targetWidth, targetHeight)</code
+          >, those fractional values on the x-axis are going to get clamped.
+        </p>
+        <p>
+          In practice this means that you&#39;ll often experience a jarring
+          &#39;popping&#39; effect when the high resolution image eventually
+          replaced the low resolution placeholder cropped version.
+        </p>
+        <p>
+          The placeholder would be offset slightly in x from the spectrogram
+          data that actually represented that time range, with the effect
+          growing more noticeable the more you&#39;re cropping into your
+          placeholder source.
+        </p>
+        <h4>WebGL2 context</h4>
+        <p>
+          The <code>&quot;webgl2&quot;</code> context provided by HTML canvas
+          doesn&#39;t share this limitation.
+        </p>
+        <p>
+          GPU texture sampling units are quite capable of doing the correct
+          sub-pixel sampling of a texture.
+        </p>
+        <p>
+          The current version of Spectastiq uploads the
+          <code>Float32Array</code> buffer created by the FFT worker threads to
+          the GPU as-is, thanks to the ability to use floating point textures.
+        </p>
+        <p>
+          <code>OES_texture_float_linear</code> is a WebGL2 extension that is
+          almost universally available. It means Spectastiq doesn&#39;t need to
+          do work to quantize the <code>Float32Array</code> returned by the FFT
+          into 8-bit grayscale values - we can just use a single channel float32
+          texture and do all that work in a <code>glsl</code> shader, taking
+          advantage of GPU parallelism.
+        </p>
+        <p>
+          That same shader can also cheaply map our float values to an RGB
+          colour gradient texture. In the canvas 2d version of this, we needed
+          to reference a lookup table for each pixel we output.
+        </p>
+        <p>
+          A final additional benefit of this approach: when drawing the
+          spectrogram at a lower resolution than the backing texture, the
+          GPUs&#39; texel sampler gives us smooth interpolation between values
+          for free.
+        </p>
+        <h2>Removing jank</h2>
+        <p>
+          Initial versions of Spectastiq had the &#39;minimap&#39; timeline
+          range selector background drawn to a separate canvas.
+        </p>
+        <p>
+          The &#39;grabby handles&#39; and draggable playhead indicators were
+          contained inside DOM elements that were manipulated with CSS.
+        </p>
+        <p>
+          This strategy worked well on desktop, but introduced unacceptable jank
+          on my low spec reference device due to reflows and repaints when
+          dragging the slider handles.
+        </p>
+        <p>
+          I was unable to completely eliminate this DOM overhead, even when
+          forcing Chrome to promote these elements to GPU accelerated layers
+          using CSS tricks.
+        </p>
+        <p>
+          Ultimately I was able to remove all the frame hitches when interacting
+          with the spectrogram by drawing all the UI onto a 2d canvas layer
+          above the spectrogram WebGL canvas, and handling all interaction
+          hit-testing of UI elements myself.
+        </p>
+        <p>
+          I&#39;m not thrilled about this. It sacrifices any accessibility that
+          might have previously been available. I ultimately decided the
+          performance gains were necessary in this instance.
+        </p>
+        <h3>Memory copy overhead in typical operation</h3>
+        <p>
+          In normal Spectastiq usage, there&#39;s a decent amount of copying of
+          data between all of these <code>WebWorker</code> threads. On modern
+          desktop systems, this doesn&#39;t really have a noticeable impact on
+          the user experience.
+        </p>
+        <p>
+          On my reference Android hardware this is no longer the case,
+          especially for longer audio clips.
+        </p>
+        <p>
+          I think the memory subsystem is just that much slower on this device
+          that <code>memcpy</code> has a non-negligible impact.
+        </p>
+        <p>
+          It&#39;s not a problem in terms of actual UI jank — all this work is
+          still happening safely off the main UI thread — but it does mean that
+          each frame of the newly rendered spectrogram takes a while to resolve.
+        </p>
+        <p>
+          There is a way that we can avoid copying chunks of the decoded audio
+          buffer between the main UI thread and all these workers. The backing
+          buffers can be changed to <code>SharedArrayBuffer</code>s, but there
+          are many caveats that apply when attempting this.
+        </p>
+        <p>
+          In order to be able to use <code>SharedArrayBuffer</code>, it&#39;s
+          necessary to be serving the page you&#39;re embedding Spectastiq in
+          from a
+          <a
+            href="https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/SharedArrayBuffer#security_requirements"
+            >&#39;Secure context&#39;</a
+          >. This means having a valid HTTPS certificate, and having the means
+          to serve your page with some additional security headers present.<br />It&#39;s
+          a hassle, but has been deemed necessary to mitigate the security risks
+          of Spectre, Heartbleed and similar attacks.
+        </p>
+        <p>
+          If you are in a position where you <em>can</em> enable
+          <code>SharedArrayBuffer</code> support, doing so speeds up performance
+          on my low spec reference hardware quite dramatically.
+        </p>
+        <h2>Why roll your own FFT?</h2>
+        <p>
+          The <code>WebAudio</code> API does expose native FFT functionality,
+          but its implementation runs on a single thread.
+        </p>
+        <p>
+          While it should be possible to parallelise it — following the same
+          slicing strategy I used in Spectastiq — I ultimately preferred the
+          extra control that comes with running the FFT calculations in
+          WebAssembly.
+        </p>
+        <p>
+          With WASM I have full control over the exact parameters and windowing
+          functions of the FFT.
+        </p>
+        <h2>Prior art</h2>
+        <p>
+          <a
+            href="https://media.ebird.org/catalog?birdOnly=true&amp;mediaType=audio"
+            >The Cornell e‑Bird media library website</a
+          >
+          offers a comparable way to explore birdsong spectrograms, but it makes
+          a very different set of tradeoffs to Spectastiq.
+        </p>
+        <p>
+          It pre‑renders everything.<br />
+          Instead of computing an FFT on the fly, e‑Bird generates a series of
+          JPEG spectrogram strips ahead of time, at multiple zoom levels. The
+          browser javascript component fetches those images and stitches them
+          together, aligning them with the audio timeline as you scroll or play.
+        </p>
+        <p>
+          This makes a lot of sense for less powerful devices, as images and
+          audio can be downloaded in parallel by the browser.
+        </p>
+        <p>
+          Major cons for this approach are the need to host and run a
+          server-side preprocessing pipeline, and additional storage
+          requirements.
+        </p>
+        <p>
+          User experience is also a bit more restrictive: You can&#39;t change
+          the colour palette the spectrograms are viewed in, and at the maximum
+          zoom level some visual fidelity is lost due to obvious JPEG
+          artifacting.
+        </p>
+        <h2>Future work</h2>
+        <p>
+          When Spectastiq renders long audio clips, the main thing that slows it
+          down is the bottleneck at <code>decodeAudioData()</code>.
+        </p>
+        <p>
+          All browsers run this function on a single thread, so the whole audio
+          file must be parsed and decoded before playback can start. It also
+          doesn&#39;t return a stream of the decoded audio, so we can&#39;t
+          start rendering a spectrogram eagerly. It only returns once the entire
+          file has been decoded.
+        </p>
+        <p>
+          There&#39;s no technical reason why you couldn&#39;t break the file
+          into pieces and decode those pieces in parallel — it&#39;s just
+          fiddly.
+        </p>
+        <p>
+          Most browser‑supported audio formats (MP3, AAC, Opus, etc.) are
+          <em>streaming</em> formats: they consist of a sequence of audio frames
+          that are independent of one another. If you locate the nearest frame
+          boundary in the compressed stream, you can start decoding from that
+          point.
+        </p>
+        <p>
+          An approach to doing this work in parallel might look like the
+          following:
+        </p>
+        <ol>
+          <li>
+            Split the file into equal, slightly overlapping chunks (the amount
+            of overlap could be informed by the max length of an audio frame in
+            a given format).
+          </li>
+          <li>
+            Some format-specific parsing code would seek to the earliest audio
+            frame header in each chunk, and then prepend a valid stream header.
+          </li>
+          <li>
+            Decode parts in parallel using <code>AudioWorklet</code>, and then
+            join them all back together.
+          </li>
+          <li>
+            Optionally, you could also start creating the initial spectrogram as
+            soon as you had at least one decoded chunk, though juggling this
+            would also introduce additional complexity.
+          </li>
+        </ol>
+        <p>
+          If the network is faster than your serial decode speed, you could
+          perhaps even download the audio file chunks concurrently using HTTP
+          range requests.
+        </p>
+        <p>
+          This is all quite conceptually simple, but in practice it is probably
+          a fair bit of work to get right.
+        </p>
+        <h2>Usage</h2>
+        <p>
+          Spectastiq is under an
+          <a
+            href="https://raw.githubusercontent.com/hardiesoft/spectastiq/refs/heads/main/LICENSE"
+            >open source license</a
+          >, and is free to use and extend however you fancy.
+        </p>
+        <p>
+          I had fun designing and building it, so I hope it&#39;s useful,
+          especially to those presenting research into bird-song. <br />
+          If it does end up being useful to the work you&#39;re doing, please
+          reach out, I&#39;d love to hear about it!
+        </p>
+        <a href="/" class="router-link-active mt-5 block">Posts index</a>
+      </div>
+    </main>
+    <footer
+      class="w-full md:w-150 flex flex-col place-self-center items-center my-10 gap-2"
+    >
+      <nav>
+        <ul class="flex gap-9">
+          <li>
+            <a
+              href="https://www.linkedin.com/in/jonathanhardie/"
+              target="_blank"
+              class="flex items-center justify-center"
+              ><svg
+                width="16"
+                height="16"
+                viewBox="0 0 72 72"
+                xmlns="http://www.w3.org/2000/svg"
+              >
+                <path
+                  d="M8 72h56a8 8 0 0 0 8-8V8a8 8 0 0 0-8-8H8a8 8 0 0 0-8 8v56a8 8 0 0 0 8 8Z"
+                  fill="currentColor"
+                ></path>
+                <path
+                  d="M62 62H51.3V43.8c0-5-1.9-7.8-5.8-7.8-4.3 0-6.6 3-6.6 7.8V62H28.6V27.3H39V32s3.1-5.7 10.5-5.7C56.7 26.3 62 30.8 62 40v22ZM16.3 22.8a6.4 6.4 0 0 1-6.3-6.4 6.4 6.4 0 1 1 12.7 0c0 3.5-2.8 6.4-6.4 6.4ZM11 62h10.8V27.3H11V62Z"
+                  fill="var(--outside-page-color)"
+                ></path></svg
+              ><span class="ms-1">LinkedIn</span></a
+            >
+          </li>
+          <li>
+            <a
+              href="https://github.com/hardiesoft/"
+              target="_blank"
+              class="flex items-center justify-center"
+              ><svg
+                width="16"
+                xmlns="http://www.w3.org/2000/svg"
+                viewBox="0 0 98 96"
+              >
+                <path
+                  d="M48.9 0a49.2 49.2 0 0 0-15.4 96c2.3.4 3.2-1.2 3.2-2.5v-9c-13.6 2.9-16.5-6-16.5-6-2.2-5.7-5.4-7.1-5.4-7.1-4.4-3 .3-3 .3-3 5 .3 7.5 5 7.5 5 4.4 7.5 11.5 5.4 14.3 4a11 11 0 0 1 3-6.5c-10.8-1.1-22.2-5.4-22.2-24.3 0-5.4 2-9.8 5-13.2-.5-1.2-2.2-6.3.5-13 0 0 4.1-1.3 13.4 5A47 47 0 0 1 49 23.8c4 0 8.3.6 12.2 1.6 9.3-6.3 13.4-5 13.4-5 2.7 6.7 1 11.8.5 13a19 19 0 0 1 5 13.2c0 19-11.4 23-22.3 24.3 1.7 1.5 3.3 4.5 3.3 9.1v13.5c0 1.3.8 2.9 3.2 2.4a49.2 49.2 0 0 0 33.4-46.7A49 49 0 0 0 49 0z"
+                  fill="currentColor"
+                ></path></svg
+              ><span class="ms-1">Github</span></a
+            >
+          </li>
+          <li>
+            <a
+              href="mailto:website@hardiesoft.com"
+              target="_blank"
+              class="flex items-center justify-center"
+              ><svg
+                xmlns="http://www.w3.org/2000/svg"
+                height="16"
+                viewBox="0 0 388.4 388.4"
+              >
+                <path
+                  fill="currentColor"
+                  d="M384.2 59.1H4.2A4.2 4.2 0 0 0 0 63.3v261.8c0 2.3 1.9 4.2 4.2 4.2h380c2.3 0 4.2-1.9 4.2-4.2V63.3c0-2.3-1.9-4.2-4.2-4.2zM319.9 93l-125.7 92L68.5 92.9h251.4zm34.7 202.6H33.8V109.3l158 115.8a4.2 4.2 0 0 0 5 0l157.9-115.8v186.2z"
+                ></path></svg
+              ><span class="ms-1">Email</span></a
+            >
+          </li>
+        </ul>
+      </nav>
+      <span>© 2026 Jon Hardie</span>
+    </footer>
+  </body>
+</html>

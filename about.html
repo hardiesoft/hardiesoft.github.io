@@ -21,6 +21,11 @@
               first = false;
               if (lastScrollY !== 0) {
                 e.target.classList.toggle("pinned", e.intersectionRatio < 1);
+                if (e.target.classList.contains("pinned")) {
+                  console.log("Pinning");
+                } else {
+                  console.log("Unpinning");
+                }
               }
             }
           },
@@ -53,9 +58,9 @@
     <meta name="mobile-web-app-capable" content="yes" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
   </head>
-  <body class="flex flex-col flex-wrap min-h-screen gap-10" id="main">
+  <body class="flex flex-col flex-wrap min-h-screen" id="main">
     <header
-      class="w-full md:w-80 md:[.pinned]:w-full md:[.pinned-on-load]:w-full md:h-80 md:[.pinned]:h-auto md:[.pinned-on-load]:h-auto flex items-center place-self-center group logo-header mt-50 sticky top-0 md:[.pinned]:mt-[1px] md:[.pinned]:py-1 md:[.pinned]:px-3"
+      class="w-80 h-80 [.pinned]:w-full [.pinned]:h-auto flex items-center place-self-center group logo-header mb-10 [.pinned]:mb-[0px] mt-10 md:mt-50 sticky top-0 [.pinned]:mt-[0px] [.pinned]:py-1 [.pinned]:px-3"
     >
       <div
         class="flex flex-col group-[.pinned]:flex-row items-center justify-between place-items-center w-full gap-8"
